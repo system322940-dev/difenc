@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>独自ハフマン暗号化ツール</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { color: #89b4fa; border-bottom: 2px solid #313244; padding-bottom: 10px; }
+        .container { background-color: #181825; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #a6adc8; }
+        input, textarea { width: 100%; padding: 10px; background-color: #313244; border: 1px solid #45475a; color: #cdd6f4; border-radius: 4px; box-sizing: border-box; }
+        textarea { resize: vertical; height: 100px; }
+        button { background-color: #89b4fa; color: #11111b; border: none; padding: 10px 20px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        button:hover { background-color: #b4befe; }
+        .log { background-color: #11111b; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px; margin-top: 10px; color: #a6e3a1; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+
+    <h1>🔐 独自ハフマン暗号化ツール</h1>
+    
+    <div class="container">
+        <div class="form-group">
+            <label for="plainText">暗号化するデータ (平文)</label>
+            <textarea id="plainText" placeholder="秘密のメッセージを入力してください..."></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="secretKey">暗号キー</label>
+            <input type="text" id="secretKey" placeholder="例: mySecretKey123">
+        </div>
+        
+        <button onclick="processEncryption()">暗号化＆送信準備</button>
+
+        <div class="form-group" style="margin-top: 20px;">
+            <label for="cipherText">暗号化結果 (Hex)</label>
+            <textarea id="cipherText" readonly></textarea>
+        </div>
+
+        <div class="form-group">
+            <label>処理ログ (内部プロセスの確認用)</label>
+            <div id="processLog" class="log">待機中...</div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. ハフマン符号化処理 ---
+        function buildHuffman(text) {
+            if (!text) return { encodedStr: "", codes: {} };
+            
+            // 出現頻度をカウント
+            let freq = {};
+            for (let char of text) freq[char] = (freq[char] || 0) + 1;
+            
+            let pq = Object.keys(freq).map(char => ({ char, freq: freq[char] }));
+            if (pq.length === 1) return { encodedStr: "0".repeat(text.length), codes: { [pq[0].char]: "0" } };
+
+            // ツリー構築
+            while (pq.length > 1) {
+                pq.sort((a, b) => a.freq - b.freq);
+                let left = pq.shift();
+                let right = pq.shift();
+                pq.push({ char: null, freq: left.freq + right.freq, left, right });
+            }
+
+            // コード生成
+            let codes = {};
+            function generateCodes(node, currentCode) {
+                if (!node) return;
+                if (node.char !== null) codes[node.char] = currentCode;
+                generateCodes(node.left, currentCode + "0");
+                generateCodes(node.right, currentCode + "1");
+            }
+            generateCodes(pq[0], "");
+
+            let encodedStr = Array.from(text).map(c => codes[c]).join('');
+            return { encodedStr, codes };
+        }
+
+        // --- 2. ご要望の狂気的なキー生成処理 ---
+        function deriveKey(key) {
+            let log = [];
+            
+            // ① 暗号キーを16進数化
+            let hexKey = Array.from(key).map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+            log.push(`Hex化: ${hexKey}`);
+
+            // ② それをbase64で暗号化(エンコード)
+            let base64Key = btoa(hexKey);
+            log.push(`Base64化: ${base64Key}`);
+
+            // ③ 暗号キーを10進数にしたもの (ここでは元キーの文字コードの合計値を採用)
+            let keyDecimal = Array.from(key).reduce((sum, c) => sum + c.charCodeAt(0), 0);
+            log.push(`キーの10進数化(合計値): ${keyDecimal}`);
+
+            // ④ base64を10進数(utf-8の文字コード)にしてから、③を足す
+            let derivedKeyArray = Array.from(base64Key).map(c => c.charCodeAt(0) + keyDecimal);
+            log.push(`最終派生キー配列: [${derivedKeyArray.join(', ')}]`);
+
+            return { derivedKeyArray, logText: log.join('\n') };
+        }
+
+        // --- 3. メイン暗号化プロセス ---
+        function processEncryption() {
+            const text = document.getElementById('plainText').value;
+            const key = document.getElementById('secretKey').value;
+            const logElement = document.getElementById('processLog');
+
+            if (!text || !key) {
+                alert("データと暗号キーの両方を入力してください。");
+                return;
+            }
+
+            try {
+                // Step A: ハフマン符号化
+                let { encodedStr, codes } = buildHuffman(text);
+                
+                // ハフマンのビット列を8ビット(1バイト)ごとに分割。余りは0埋め。
+                while (encodedStr.length % 8 !== 0) encodedStr += '0';
+                let bytes = [];
+                for (let i = 0; i < encodedStr.length; i += 8) {
+                    bytes.push(parseInt(encodedStr.slice(i, i + 8), 2));
+                }
+
+                // Step B: キーの生成
+                let { derivedKeyArray, logText } = deriveKey(key);
+
+                // Step C: ハフマンのバイト配列と、派生キー配列を用いてXOR暗号化
+                let cipherHex = bytes.map((b, i) => {
+                    // キー配列をループさせてXORをかける (ストリーム暗号的な動き)
+                    let k = derivedKeyArray[i % derivedKeyArray.length];
+                    return (b ^ k).toString(16).padStart(2, '0');
+                }).join('');
+
+                // 画面出力
+                document.getElementById('cipherText').value = cipherHex;
+                logElement.innerText = `[ハフマン変換後のビット列]\n${encodedStr}\n\n[キー生成プロセス]\n${logText}\n\n暗号化完了！`;
+
+                // --- 既存の通信コード呼び出し ---
+                sendEncryptedData(cipherHex, codes);
+
+            } catch (e) {
+                logElement.innerText = `エラーが発生しました: ${e.message}`;
+            }
+        }
+
+        // --- [2026-02-08 メモ対応] 通信用コード ---
+        // ※ この関数内に既存の通信処理(WebSocketやFetch等)を実装・維持してください。
+        async function sendEncryptedData(cipherText, huffmanTree) {
+            console.log("=== 通信モジュール待機 ===");
+            console.log("送信予定の暗号データ:", cipherText);
+            // 注意: 復号側にはハフマンツリー(huffmanTree)も安全に共有する必要があります。
+            // 例: socket.emit('sendMessage', { payload: cipherText, tree: huffmanTree });
+        }
+    </script>
+</body>
+</html>
