@@ -3,69 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>独自ハフマン暗号化ツール</title>
+    <title>独自ハフマン暗号システム (Camouflaged)</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; max-width: 800px; margin: 0 auto; padding: 20px; }
-        h1 { color: #89b4fa; border-bottom: 2px solid #313244; padding-bottom: 10px; }
-        .container { background-color: #181825; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1, h2 { color: #89b4fa; border-bottom: 2px solid #313244; padding-bottom: 10px; }
+        .container { background-color: #181825; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); margin-bottom: 20px; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; color: #a6adc8; }
-        input, textarea { width: 100%; padding: 10px; background-color: #313244; border: 1px solid #45475a; color: #cdd6f4; border-radius: 4px; box-sizing: border-box; }
+        input, textarea { width: 100%; padding: 10px; background-color: #313244; border: 1px solid #45475a; color: #cdd6f4; border-radius: 4px; box-sizing: border-box; font-family: monospace; }
         textarea { resize: vertical; height: 100px; }
-        button { background-color: #89b4fa; color: #11111b; border: none; padding: 10px 20px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        button { background-color: #89b4fa; color: #11111b; border: none; padding: 10px 20px; font-size: 16px; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; margin-right: 10px; }
         button:hover { background-color: #b4befe; }
-        .log { background-color: #11111b; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px; margin-top: 10px; color: #a6e3a1; word-wrap: break-word; }
+        button.decrypt-btn { background-color: #f38ba8; }
+        button.decrypt-btn:hover { background-color: #fba922; }
+        .log { background-color: #11111b; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 13px; margin-top: 10px; color: #a6e3a1; white-space: pre-wrap; word-wrap: break-word; max-height: 200px; overflow-y: auto; }
+        .flex-row { display: flex; gap: 20px; }
+        .flex-half { flex: 1; }
     </style>
 </head>
 <body>
 
-    <h1>🔐 独自ハフマン暗号化ツール</h1>
+    <h1>🔐 独自ハフマン暗号システム (Camouflaged)</h1>
     
     <div class="container">
         <div class="form-group">
-            <label for="plainText">暗号化するデータ (平文)</label>
-            <textarea id="plainText" placeholder="秘密のメッセージを入力してください..."></textarea>
-        </div>
-        
-        <div class="form-group">
-            <label for="secretKey">暗号キー</label>
-            <input type="text" id="secretKey" placeholder="例: mySecretKey123">
-        </div>
-        
-        <button onclick="processEncryption()">暗号化＆送信準備</button>
-
-        <div class="form-group" style="margin-top: 20px;">
-            <label for="cipherText">暗号化結果 (Hex)</label>
-            <textarea id="cipherText" readonly></textarea>
-        </div>
-
-        <div class="form-group">
-            <label>処理ログ (内部プロセスの確認用)</label>
-            <div id="processLog" class="log">待機中...</div>
+            <label for="secretKey">🔑 共通暗号キー (Encrypt / Decrypt 共通)</label>
+            <input type="text" id="secretKey" placeholder="例: mySuperSecretKey123">
         </div>
     </div>
 
+    <div class="flex-row">
+        <div class="container flex-half">
+            <h2>📤 暗号化</h2>
+            <div class="form-group">
+                <label for="plainText">平文 (メッセージ)</label>
+                <textarea id="plainText" placeholder="秘密のメッセージを入力..."></textarea>
+            </div>
+            <button onclick="processEncryption()">暗号化＆送信</button>
+            <div class="form-group" style="margin-top: 15px;">
+                <label for="cipherOutput">生成された暗号データ (JWT偽装形式)</label>
+                <textarea id="cipherOutput" readonly></textarea>
+            </div>
+        </div>
+
+        <div class="container flex-half">
+            <h2>📥 復号</h2>
+            <div class="form-group">
+                <label for="cipherInput">暗号データ (受信データ)</label>
+                <textarea id="cipherInput" placeholder="eyJ0eXAi... から始まるデータを入力"></textarea>
+            </div>
+            <button class="decrypt-btn" onclick="processDecryption()">復号を実行</button>
+            <div class="form-group" style="margin-top: 15px;">
+                <label for="decryptedText">復号結果</label>
+                <textarea id="decryptedText" readonly></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <label>🛠 内部処理ログ</label>
+        <div id="processLog" class="log">システム待機中...</div>
+    </div>
+
     <script>
-        // --- 1. ハフマン符号化処理 ---
+        // ==========================================
+        // 1. コア・アルゴリズム群
+        // ==========================================
+
+        // ハフマン符号化
         function buildHuffman(text) {
             if (!text) return { encodedStr: "", codes: {} };
-            
-            // 出現頻度をカウント
             let freq = {};
             for (let char of text) freq[char] = (freq[char] || 0) + 1;
-            
             let pq = Object.keys(freq).map(char => ({ char, freq: freq[char] }));
             if (pq.length === 1) return { encodedStr: "0".repeat(text.length), codes: { [pq[0].char]: "0" } };
 
-            // ツリー構築
             while (pq.length > 1) {
                 pq.sort((a, b) => a.freq - b.freq);
-                let left = pq.shift();
-                let right = pq.shift();
+                let left = pq.shift(), right = pq.shift();
                 pq.push({ char: null, freq: left.freq + right.freq, left, right });
             }
 
-            // コード生成
             let codes = {};
             function generateCodes(node, currentCode) {
                 if (!node) return;
@@ -79,80 +97,160 @@
             return { encodedStr, codes };
         }
 
-        // --- 2. ご要望の狂気的なキー生成処理 ---
+        // ご要望の変態的キー派生処理
         function deriveKey(key) {
-            let log = [];
-            
             // ① 暗号キーを16進数化
             let hexKey = Array.from(key).map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
-            log.push(`Hex化: ${hexKey}`);
-
-            // ② それをbase64で暗号化(エンコード)
+            // ② base64化
             let base64Key = btoa(hexKey);
-            log.push(`Base64化: ${base64Key}`);
-
-            // ③ 暗号キーを10進数にしたもの (ここでは元キーの文字コードの合計値を採用)
+            // ③ 暗号キー文字コード合計値(10進数)
             let keyDecimal = Array.from(key).reduce((sum, c) => sum + c.charCodeAt(0), 0);
-            log.push(`キーの10進数化(合計値): ${keyDecimal}`);
-
-            // ④ base64を10進数(utf-8の文字コード)にしてから、③を足す
+            // ④ base64を10進数化して③を足す
             let derivedKeyArray = Array.from(base64Key).map(c => c.charCodeAt(0) + keyDecimal);
-            log.push(`最終派生キー配列: [${derivedKeyArray.join(', ')}]`);
-
-            return { derivedKeyArray, logText: log.join('\n') };
+            return derivedKeyArray;
         }
 
-        // --- 3. メイン暗号化プロセス ---
+        // ==========================================
+        // 2. 暗号化メインプロセス
+        // ==========================================
         function processEncryption() {
             const text = document.getElementById('plainText').value;
             const key = document.getElementById('secretKey').value;
             const logElement = document.getElementById('processLog');
 
             if (!text || !key) {
-                alert("データと暗号キーの両方を入力してください。");
+                alert("暗号化にはメッセージとキーの両方が必要です。");
                 return;
             }
 
             try {
-                // Step A: ハフマン符号化
+                // [Step 1] ハフマン符号化
                 let { encodedStr, codes } = buildHuffman(text);
+                const bitLength = encodedStr.length; // 復元用にビット長を保存
                 
-                // ハフマンのビット列を8ビット(1バイト)ごとに分割。余りは0埋め。
-                while (encodedStr.length % 8 !== 0) encodedStr += '0';
+                // 8ビット単位にパディング
+                let paddedStr = encodedStr;
+                while (paddedStr.length % 8 !== 0) paddedStr += '0';
+                
                 let bytes = [];
-                for (let i = 0; i < encodedStr.length; i += 8) {
-                    bytes.push(parseInt(encodedStr.slice(i, i + 8), 2));
+                for (let i = 0; i < paddedStr.length; i += 8) {
+                    bytes.push(parseInt(paddedStr.slice(i, i + 8), 2));
                 }
 
-                // Step B: キーの生成
-                let { derivedKeyArray, logText } = deriveKey(key);
-
-                // Step C: ハフマンのバイト配列と、派生キー配列を用いてXOR暗号化
+                // [Step 2] キー生成とXOR暗号化
+                let derivedKeyArray = deriveKey(key);
                 let cipherHex = bytes.map((b, i) => {
-                    // キー配列をループさせてXORをかける (ストリーム暗号的な動き)
                     let k = derivedKeyArray[i % derivedKeyArray.length];
                     return (b ^ k).toString(16).padStart(2, '0');
                 }).join('');
 
-                // 画面出力
-                document.getElementById('cipherText').value = cipherHex;
-                logElement.innerText = `[ハフマン変換後のビット列]\n${encodedStr}\n\n[キー生成プロセス]\n${logText}\n\n暗号化完了！`;
+                // [Step 3] 技術隠蔽 (カモフラージュ処理)
+                // ハフマンツリーをJSON化してBase64で包み、全体をJWT風にフォーマットする
+                // "eyJ0eXAiOiJKV1QiLCJhbGciOiJBRVMtMjU2LUdDTSJ9" は {"typ":"JWT","alg":"AES-256-GCM"} のBase64 (ダミーヘッダー)
+                const dummyHeader = "eyJ0eXAiOiJKV1QiLCJhbGciOiJBRVMtMjU2LUdDTSJ9";
+                // 辞書のキーと値をURLエンコードしてBase64化（文字化け防止）
+                const treePayload = btoa(encodeURIComponent(JSON.stringify(codes))); 
+                
+                // 最終ペイロード: Header.Tree.CipherHex.BitLength
+                const finalPayload = `${dummyHeader}.${treePayload}.${cipherHex}.${bitLength}`;
 
-                // --- 既存の通信コード呼び出し ---
-                sendEncryptedData(cipherHex, codes);
+                document.getElementById('cipherOutput').value = finalPayload;
+                // テストしやすいように復号側の入力欄にも自動セット
+                document.getElementById('cipherInput').value = finalPayload;
+
+                logElement.innerText = `[暗号化成功]\n・ハフマンビット長: ${bitLength}\n・派生キー長: ${derivedKeyArray.length}\n・ダミーヘッダー付与完了\n\n送信準備が完了しました。`;
+
+                // --- 外部通信用関数へデータを渡す ---
+                sendEncryptedData(finalPayload);
 
             } catch (e) {
-                logElement.innerText = `エラーが発生しました: ${e.message}`;
+                logElement.innerText = `[暗号化エラー] ${e.message}`;
             }
         }
 
-        // --- [2026-02-08 メモ対応] 通信用コード ---
-        // ※ この関数内に既存の通信処理(WebSocketやFetch等)を実装・維持してください。
-        async function sendEncryptedData(cipherText, huffmanTree) {
-            console.log("=== 通信モジュール待機 ===");
-            console.log("送信予定の暗号データ:", cipherText);
-            // 注意: 復号側にはハフマンツリー(huffmanTree)も安全に共有する必要があります。
-            // 例: socket.emit('sendMessage', { payload: cipherText, tree: huffmanTree });
+        // ==========================================
+        // 3. 復号メインプロセス (逆算)
+        // ==========================================
+        function processDecryption() {
+            const payload = document.getElementById('cipherInput').value;
+            const key = document.getElementById('secretKey').value;
+            const logElement = document.getElementById('processLog');
+
+            if (!payload || !key) {
+                alert("復号には暗号データとキーの両方が必要です。");
+                return;
+            }
+
+            try {
+                // [Step 1] カモフラージュの解除 (JWT風フォーマットの分解)
+                const parts = payload.split('.');
+                if (parts.length !== 4) throw new Error("不正なデータフォーマットです。");
+                
+                const treePayload = parts[1];
+                const cipherHex = parts[2];
+                const bitLength = parseInt(parts[3], 10);
+
+                // ハフマンツリーの復元
+                const codes = JSON.parse(decodeURIComponent(atob(treePayload)));
+                // ビット列→文字 の逆引き辞書を作成
+                const reverseCodes = {};
+                for (let char in codes) {
+                    reverseCodes[codes[char]] = char;
+                }
+
+                // [Step 2] キー生成とXOR復号
+                let derivedKeyArray = deriveKey(key);
+                let decryptedBytes = [];
+                for (let i = 0; i < cipherHex.length; i += 2) {
+                    let hexByte = parseInt(cipherHex.slice(i, i + 2), 16);
+                    let k = derivedKeyArray[(i / 2) % derivedKeyArray.length];
+                    decryptedBytes.push(hexByte ^ k); // XORは同じキーをぶつけると元に戻る
+                }
+
+                // [Step 3] バイト配列からビット列を復元
+                let binaryStr = decryptedBytes.map(b => b.toString(2).padStart(8, '0')).join('');
+                // パディング（余分な0）を削って元のビット長に戻す
+                binaryStr = binaryStr.slice(0, bitLength);
+
+                // [Step 4] ハフマンツリーを使って元の文字列へデコード
+                let decodedText = "";
+                let tempBits = "";
+                for (let bit of binaryStr) {
+                    tempBits += bit;
+                    if (reverseCodes[tempBits] !== undefined) {
+                        decodedText += reverseCodes[tempBits];
+                        tempBits = ""; // マッチしたらリセット
+                    }
+                }
+
+                document.getElementById('decryptedText').value = decodedText;
+                logElement.innerText = `[復号成功]\n・抽出ビット長: ${bitLength}\n・ハフマンツリー再構築完了\n・XOR逆算完了\n\n正常に復号されました。`;
+
+            } catch (e) {
+                logElement.innerText = `[復号エラー] キーが間違っているか、データが破損しています。\n詳細: ${e.message}`;
+                document.getElementById('decryptedText').value = "復号に失敗しました。";
+            }
+        }
+
+        // ==========================================
+        // 4. [重要維持] 通信用インターフェース
+        // ==========================================
+        // 過去のメモ通り、この通信用関数は削除せず維持しています。
+        // WebSocket, Fetch API, WebRTC などの実装をここに追加してください。
+        async function sendEncryptedData(payload) {
+            console.log("=== [通信モジュール] ===");
+            console.log("送信準備完了データ: ", payload);
+            console.log("※ この関数内に実際の送信処理を実装してください。");
+            
+            // 実装例 (Fetch APIの場合):
+            /*
+            fetch('https://your-api-endpoint.com/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: payload })
+            }).then(res => console.log("送信完了"))
+              .catch(err => console.error("送信エラー", err));
+            */
         }
     </script>
 </body>
