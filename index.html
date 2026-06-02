@@ -5,43 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>difenc terminal</title>
     <style>
-        body { font-family: monospace; background-color: #1e1e2e; color: #cdd6f4; max-width: 800px; margin: 0 auto; padding: 20px; }
-        h1 { color: #89b4fa; }
-        .container { background-color: #181825; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        textarea, input { width: 100%; padding: 10px; margin-top: 5px; background: #313244; color: #cdd6f4; border: 1px solid #45475a; box-sizing: border-box; }
-        button { background: #89b4fa; color: #11111b; border: none; padding: 10px 20px; cursor: pointer; margin-top: 10px; font-weight: bold; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1 { color: #89b4fa; border-bottom: 2px solid #313244; padding-bottom: 10px; }
+        .container { background-color: #181825; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #a6adc8; }
+        textarea, input { width: 100%; padding: 10px; margin-bottom: 15px; background: #313244; color: #cdd6f4; border: 1px solid #45475a; border-radius: 4px; box-sizing: border-box; font-family: monospace; }
+        button { background: #89b4fa; color: #11111b; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; font-size: 16px; margin-right: 10px; transition: 0.2s; }
         button:hover { background: #b4befe; }
-        .log { margin-top: 15px; color: #f38ba8; }
+        button.decrypt-btn { background: #a6e3a1; }
+        button.decrypt-btn:hover { background: #94e2d5; }
+        .log { margin-top: 10px; font-family: monospace; font-size: 14px; color: #f38ba8; }
     </style>
 </head>
 <body>
 
-    <h1>difenc</h1>
+    <h1>difenc terminal</h1>
     
     <div class="container">
-        <label>Key</label>
+        <label>🔑 Key (共通キー)</label>
         <input type="text" id="keyInput" value="aaa">
     </div>
 
     <div class="container">
-        <label>Input (Plain Text or Encrypted JWT)</label>
-        <textarea id="dataInput" rows="5"></textarea>
+        <label>📥 Input (平文 または 暗号データ)</label>
+        <textarea id="dataInput" rows="5" placeholder="ここにメッセージ、または eyJ0... を入力"></textarea>
         
         <div>
-            <button onclick="sendRequest('encrypt')">Encrypt</button>
-            <button onclick="sendRequest('decrypt')" style="background: #a6e3a1;">Decrypt</button>
+            <button onclick="sendRequest('encrypt')">Encrypt (暗号化)</button>
+            <button class="decrypt-btn" onclick="sendRequest('decrypt')">Decrypt (復号)</button>
         </div>
     </div>
 
     <div class="container">
-        <label>Output</label>
-        <textarea id="dataOutput" rows="5" readonly></textarea>
+        <label>📤 Output (結果)</label>
+        <textarea id="dataOutput" rows="6" readonly></textarea>
         <div id="status" class="log">Ready</div>
     </div>
 
     <script>
-        // デプロイしたCloudflare WorkerのURLをここに入れます
-        const WORKER_URL = "https://difenc.system322940-dev.workers.dev/";
+        // ★ここにデプロイしたCloudflare WorkerのURLを入れる
+        const WORKER_URL = "https://difenc.system322940-dev.workers.dev";
 
         async function sendRequest(action) {
             const key = document.getElementById('keyInput').value;
@@ -55,10 +58,10 @@
             }
 
             statusEl.innerText = "Processing...";
+            statusEl.style.color = "#f9e2af";
             outputEl.value = "";
 
             try {
-                // ロジックは全てサーバー(Worker)に丸投げ
                 const response = await fetch(WORKER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -67,13 +70,14 @@
 
                 if (!response.ok) throw new Error("Network response was not ok");
                 
-                // データだけをシンプルに受け取る
                 const resultText = await response.text();
                 outputEl.value = resultText;
                 statusEl.innerText = `${action.toUpperCase()} completed.`;
+                statusEl.style.color = "#a6e3a1";
 
             } catch (error) {
                 statusEl.innerText = "Communication error.";
+                statusEl.style.color = "#f38ba8";
             }
         }
     </script>
