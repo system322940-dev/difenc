@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>独自ハフマン暗号システム (完全版)</title>
+    <title>独自ハフマン暗号システム (Advanced Camouflage)</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; max-width: 900px; margin: 0 auto; padding: 20px; }
         h1, h2 { color: #89b4fa; border-bottom: 2px solid #313244; padding-bottom: 10px; }
@@ -23,7 +23,7 @@
 </head>
 <body>
 
-    <h1>🔐 独自ハフマン暗号システム (仕様完全修正版)</h1>
+    <h1>🔐 独自ハフマン暗号システム (Advanced Camouflage)</h1>
     
     <div class="container">
         <div class="form-group">
@@ -70,6 +70,8 @@
         // 1. コア・アルゴリズム群
         // ==========================================
 
+        const NOISE_STRING = "zspS6ol"; // 混入させるダミー文字列
+
         // ハフマン符号化
         function buildHuffman(text) {
             if (!text) return { encodedStr: "", codes: {} };
@@ -77,7 +79,6 @@
             for (let char of text) freq[char] = (freq[char] || 0) + 1;
             let pq = Object.keys(freq).map(char => ({ char, freq: freq[char] }));
             
-            // 単一文字種対策
             if (pq.length === 1) return { encodedStr: "0".repeat(text.length), codes: { [pq[0].char]: "0" } };
 
             while (pq.length > 1) {
@@ -99,15 +100,11 @@
             return { encodedStr, codes };
         }
 
-        // 派生キー処理（【修正】確実に1バイト化するよう & 0xFF を追加）
+        // 派生キー処理（1バイト化）
         function deriveKey(key) {
-            // ① 暗号キーを16進数化
             let hexKey = Array.from(key).map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
-            // ② base64化
             let base64Key = btoa(hexKey);
-            // ③ 暗号キー文字コード合計値(10進数)
             let keyDecimal = Array.from(key).reduce((sum, c) => sum + c.charCodeAt(0), 0);
-            // ④ base64を10進数化して③を足し、確実に0〜255(1バイト)の範囲に収める
             let derivedKeyArray = Array.from(base64Key).map(c => (c.charCodeAt(0) + keyDecimal) & 0xFF);
             return derivedKeyArray;
         }
@@ -130,7 +127,6 @@
                 let { encodedStr, codes } = buildHuffman(text);
                 const bitLength = encodedStr.length;
                 
-                // 8ビット単位にパディング
                 let paddedStr = encodedStr;
                 while (paddedStr.length % 8 !== 0) paddedStr += '0';
                 
@@ -139,25 +135,33 @@
                     bytes.push(parseInt(paddedStr.slice(i, i + 8), 2));
                 }
 
-                // [Step 2] キー生成とXOR暗号化（修正されたキー配列を使用）
+                // [Step 2] キー生成とXOR暗号化 (16進数化)
                 let derivedKeyArray = deriveKey(key);
                 let cipherHex = bytes.map((b, i) => {
                     let k = derivedKeyArray[i % derivedKeyArray.length];
-                    // 必ず2桁のクリーンなHexが出力される
                     return (b ^ k).toString(16).padStart(2, '0');
                 }).join('');
 
-                // [Step 3] 技術隠蔽 (JWT風ダミーヘッダー偽装)
+                // [Step 3] ★ダミー文字列の挿入 (3文字おきに zspS6ol を入れる)
+                let camouflagedHex = "";
+                for (let i = 0; i < cipherHex.length; i += 3) {
+                    camouflagedHex += cipherHex.slice(i, i + 3);
+                    if (i + 3 < cipherHex.length) {
+                        camouflagedHex += NOISE_STRING;
+                    }
+                }
+
+                // [Step 4] 技術隠蔽 (JWT風ダミーヘッダー偽装)
                 const dummyHeader = "eyJ0eXAiOiJKV1QiLCJhbGciOiJBRVMtMjU2LUdDTSJ9";
                 const treePayload = btoa(encodeURIComponent(JSON.stringify(codes))); 
                 
-                // 最終ペイロード合成
-                const finalPayload = `${dummyHeader}.${treePayload}.${cipherHex}.${bitLength}`;
+                // 最終ペイロード合成 (camouflagedHex を使用)
+                const finalPayload = `${dummyHeader}.${treePayload}.${camouflagedHex}.${bitLength}`;
 
                 document.getElementById('cipherOutput').value = finalPayload;
                 document.getElementById('cipherInput').value = finalPayload; // テスト用に自動コピー
 
-                logElement.innerText = `[暗号化成功]\n・ハフマンビット長: ${bitLength}\n・暗号データHex: ${cipherHex}\n・カモフラージュJWTの生成完了\n\n通信用モジュールへデータを引き渡しました。`;
+                logElement.innerText = `[暗号化成功]\n・ハフマンビット長: ${bitLength}\n・元のHex長: ${cipherHex.length}\n・ノイズ混入後の偽装Hex長: ${camouflagedHex.length}\n\n送信準備完了（通信モジュールへ引き渡し）`;
 
                 // --- 外部通信用関数への受け渡し ---
                 sendEncryptedData(finalPayload);
@@ -186,8 +190,11 @@
                 if (parts.length !== 4) throw new Error("データフォーマットが一致しません。");
                 
                 const treePayload = parts[1];
-                const cipherHex = parts[2];
+                const camouflagedHex = parts[2];
                 const bitLength = parseInt(parts[3], 10);
+
+                // ★ダミー文字列の除去 (zspS6ol をすべて消し去り純粋なHexに戻す)
+                const cipherHex = camouflagedHex.split(NOISE_STRING).join('');
 
                 // ハフマンツリーの復元
                 const codes = JSON.parse(decodeURIComponent(atob(treePayload)));
@@ -196,13 +203,13 @@
                     reverseCodes[codes[char]] = char;
                 }
 
-                // [Step 2] キー生成とXOR復号（修正されたキー配列を使用）
+                // [Step 2] キー生成とXOR復号
                 let derivedKeyArray = deriveKey(key);
                 let decryptedBytes = [];
                 for (let i = 0; i < cipherHex.length; i += 2) {
                     let hexByte = parseInt(cipherHex.slice(i, i + 2), 16);
                     let k = derivedKeyArray[(i / 2) % derivedKeyArray.length];
-                    decryptedBytes.push(hexByte ^ k); // クリーンな1バイトXOR
+                    decryptedBytes.push(hexByte ^ k);
                 }
 
                 // [Step 3] バイト配列からビット列を正確に復元
@@ -221,7 +228,7 @@
                 }
 
                 document.getElementById('decryptedText').value = decodedText;
-                logElement.innerText = `[復号成功]\n・元ビットデータの完全復元に成功\n・メッセージ: "${decodedText}"`;
+                logElement.innerText = `[復号成功]\n・ノイズ(${NOISE_STRING})の除去完了\n・クリーンなHex長: ${cipherHex.length}\n・メッセージ: "${decodedText}"`;
 
             } catch (e) {
                 logElement.innerText = `[復号エラー] キーの不一致、またはデータが不正です。\n詳細: ${e.message}`;
@@ -230,10 +237,9 @@
         }
 
         // ==========================================
-        // 4. [2026-02-08 メモ対応] 通信用インターフェース
+        // 4. [通信用インターフェース]
         // ==========================================
         // この関数は削除せず保持されています。
-        // サーバー（WebSocketやFetch等）へデータを送信するロジックをここにバインドしてください。
         async function sendEncryptedData(payload) {
             console.log("=== [通信モジュール発火] ===");
             console.log("送信ペイロード: ", payload);
