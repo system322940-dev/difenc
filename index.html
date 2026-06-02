@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>difenc terminal</title>
+    <title>difenc web ver</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; max-width: 800px; margin: 0 auto; padding: 20px; }
         h1 { color: #89b4fa; border-bottom: 2px solid #313244; padding-bottom: 10px; }
@@ -19,15 +19,15 @@
 </head>
 <body>
 
-    <h1>difenc terminal</h1>
+    <h1>difenc web ver</h1>
     
     <div class="container">
-        <label>🔑 Key (共通キー)</label>
+        <label>Key (共通キー)</label>
         <input type="text" id="keyInput" value="aaa">
     </div>
 
     <div class="container">
-        <label>📥 Input (平文 または 暗号データ)</label>
+        <label>Input (平文または暗号データ)</label>
         <textarea id="dataInput" rows="5" placeholder="ここにメッセージ、または eyJ0... を入力"></textarea>
         
         <div>
@@ -37,13 +37,12 @@
     </div>
 
     <div class="container">
-        <label>📤 Output (結果)</label>
+        <label>Output (結果)</label>
         <textarea id="dataOutput" rows="6" readonly></textarea>
         <div id="status" class="log">Ready</div>
     </div>
 
     <script>
-        // ★ここにデプロイしたCloudflare WorkerのURLを入れる
         const WORKER_URL = "https://difenc.system322940-dev.workers.dev";
 
         async function sendRequest(action) {
