@@ -41,7 +41,7 @@
     <div class="container">
         <label>Output (結果)</label>
         <textarea id="dataOutput" rows="6" readonly></textarea>
-        <input id="copy" value="コピー" type="button" class="copy-btn"></input>
+        <button id="copy" value="コピー" class="copy-btn"></input>
         <div id="status" class="log">Ready</div>
     </div>
 
@@ -82,13 +82,23 @@
                 statusEl.style.color = "#f38ba8";
             }
         }
+        
+        const btn = document.getElementById('btn');
 
-        function copy() {
-          navigator.clipboard.writeText(response);
+        btn.addEventListener('click', () => {
+        if (!navigator.clipboard) {
+          alert("このブラウザは対応していません");
+          return;
         }
 
-        let copybutton = document.getElementById("copy");
-        copybutton.addEventListener("click",copy)
+        navigator.clipboard.writeText(response.textContent).then(
+        () => {
+          alert('コピー成功');
+        },
+        () => {
+          alert('コピー失敗');
+        });
+    });
     </script>
 </body>
 </html>
